@@ -1,0 +1,4 @@
+[profile.release]
+incremental = true
+lto = "thin"
+opt-level = 3

@@ -1,0 +1,22 @@
+[package]
+name = "libil2cpp-parser"
+version = "0.1.0"
+edition = "2021"
+license = "AGPLv3"
+authors = ["commonuserlol"]
+
+[features]
+progress_bar = []
+
+[dependencies]
+clap = { version = "4.5.13", features = ["derive"] }
+colour = "2.1.0"
+futures = "0.3.31"
+futures-util = "0.3.31"
+itertools = "0.13.0"
+markdown-table = "0.2.0"
+regex = "1.10.6"
+reqwest = { version = "0.12.7", features = ["stream"] }
+tar = "0.4.41"
+tokio = { version = "1.39.3", features = ["full"] }
+xz2 = "0.1.7"
