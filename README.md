@@ -7,6 +7,7 @@ Build as release for better LZMA 🐌 decompressor performance 🚀: `cargo r --
 ### Showcase
 ![unwrap](assets/unwrap.webp)
 ![clone](assets/clone.webp)
+![derive](assets/derive.webp)
 
 ## Can you add windows/mac editor parsing?
 
