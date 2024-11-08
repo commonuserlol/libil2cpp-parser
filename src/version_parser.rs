@@ -1,13 +1,7 @@
-use regex::Regex;
-
-use crate::unity_version::UnityVersion;
 use std::cmp::Ordering;
 use std::fmt::{self, Display};
 use std::path::PathBuf;
-use std::sync::LazyLock;
-
-static UNITYHUB_VERSION_REGEX: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"unityhub:\/\/([0-9]+)\.([0-9]+)\.([0-9]+)\.?([abcfpx]+)([0-9]+)\/[0-9a-z]{12}").unwrap());
+use unity_version::UnityVersion;
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Clone)]
 pub struct DownloadableUnity {
@@ -28,17 +22,11 @@ impl Ord for DownloadableUnity {
     }
 }
 
-impl From<&str> for DownloadableUnity {
-    fn from(value: &str) -> Self {
-        let mut r#match = value.split("/");
-        r#match.next();
-        r#match.next();
-        let version = r#match.next().unwrap();
-        let changeset = r#match.next().unwrap();
-
+impl From<(String, String)> for DownloadableUnity {
+    fn from((inner, changeset): (String, String)) -> Self {
         DownloadableUnity {
-            inner: UnityVersion::from(version),
-            changeset: changeset.to_string(),
+            inner: UnityVersion::from(inner.as_str()),
+            changeset,
             is_downloaded: false,
         }
     }
@@ -50,11 +38,8 @@ impl Into<PathBuf> for DownloadableUnity {
     }
 }
 
-pub fn parse_unity_versions(text: &String) -> Vec<DownloadableUnity> {
-    let mut unity_versions = UNITYHUB_VERSION_REGEX
-        .find_iter(text.as_str())
-        .map(|e| DownloadableUnity::from(e.as_str()))
-        .collect::<Vec<_>>();
+pub fn parse_unity_versions(pairs: Vec<(String, String)>) -> Vec<DownloadableUnity> {
+    let mut unity_versions = pairs.into_iter().map(|e| DownloadableUnity::from(e)).collect::<Vec<_>>();
     unity_versions.sort();
     unity_versions.dedup();
 

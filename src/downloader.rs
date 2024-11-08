@@ -1,34 +1,101 @@
 use colour::*;
 use futures_util::StreamExt;
-use reqwest::header::USER_AGENT;
-use reqwest::{get, Client};
+use reqwest::header::{CONTENT_TYPE, USER_AGENT};
+use reqwest::Client;
+use serde::{Deserialize, Serialize};
 use std::io::Write;
 
-use crate::unity_version::UnityVersion;
 use crate::version_parser::DownloadableUnity;
+use unity_version::{UnityVersion, UnityVersionType};
 
-const UNITY_ARCHIVE_URL: &'static str = "https://unity.com/en/releases/editor/archive";
+const GRAPHQL_URL: &'static str = "https://services.unity.com/graphql";
+const VERSIONS: [&'static str; 9] = ["5", "2017", "2018", "2019", "2020", "2021", "2022", "2023", "6000"];
 const LINUX_DOWNLOAD_PATTERN: &'static str = "<span class=\"truncate\">Linux</span>";
 
-pub async fn fetch_archive() -> Result<String, String> {
-    Ok(get(UNITY_ARCHIVE_URL)
-        .await
-        .or(Err("Failed to fetch unity archive"))?
-        .text()
-        .await
-        .or(Err("Failed to parse text"))?)
+#[derive(Serialize)]
+struct GraphQLPayloadVariables {
+    pub limit: u16,
+    pub version: String,
+}
+
+#[derive(Serialize)]
+struct GraphQLPayload {
+    #[serde(rename = "operationName")]
+    pub operation_name: String,
+    pub query: String,
+    pub variables: GraphQLPayloadVariables,
+}
+
+#[derive(Deserialize)]
+struct GraphQLReponseNode {
+    version: String,
+    #[serde(rename = "unityHubDeepLink")]
+    unity_hub_url: String,
+}
+
+#[derive(Deserialize)]
+struct GraphQLResponseEdge {
+    node: GraphQLReponseNode,
+}
+
+#[derive(Deserialize)]
+struct GraphQLResponseUnityReleases {
+    edges: Vec<GraphQLResponseEdge>,
+}
+
+#[derive(Deserialize)]
+struct GraphQLResponseDummy {
+    #[serde(rename = "getUnityReleases")]
+    get_unity_releases: GraphQLResponseUnityReleases,
+}
+
+#[derive(Deserialize)]
+struct _GraphQLResponseDummy {
+    data: GraphQLResponseDummy,
+}
+
+pub async fn fetch_versions() -> Vec<(String, String)> {
+    let mut vec = Vec::with_capacity(1500);
+
+    for version in VERSIONS {
+        let payload = GraphQLPayload {
+            operation_name: "GetRelease".into(),
+            query: r#"query GetRelease($limit: Int, $skip: Int, $version: String!, $stream: [UnityReleaseStream!]) {getUnityReleases(limit: $limit skip: $skip stream: $stream version: $version entitlements: [XLTS]) {totalCount edges {node {version entitlements releaseDate unityHubDeepLink  stream }}}}"#.into(),
+            variables: GraphQLPayloadVariables { limit: 1000, version: version.into() }
+        };
+        let client = Client::new();
+        let content = client
+            .post(GRAPHQL_URL)
+            .body(serde_json::to_string(&payload).unwrap())
+            .header(CONTENT_TYPE, "application/json")
+            .send()
+            .await
+            .unwrap()
+            .text()
+            .await
+            .unwrap();
+        let data: _GraphQLResponseDummy = serde_json::from_str(content.as_str()).unwrap();
+        let total = data.data.get_unity_releases;
+        total.edges.into_iter().for_each(|edge| {
+            let node = edge.node;
+            let lifetime = format!("://{}/", node.version);
+            let mut changeset_split = node.unity_hub_url.split(lifetime.as_str());
+            vec.push((node.version, changeset_split.nth(1).unwrap().to_string()))
+        });
+    }
+
+    vec
 }
 
 pub async fn is_available_for_linux(unity_version: &UnityVersion) -> Result<bool, String> {
     let url = match unity_version.r#type {
-        'a' => format!("https://unity.com/en/releases/editor/alpha/{}", unity_version.version()),
-        'b' => format!("https://unity.com/en/releases/editor/beta/{}", unity_version.version()),
-        'c' => panic!("We don't handle china unity!"),
-        'f' | 'p' => format!(
+        UnityVersionType::Alpha => format!("https://unity.com/en/releases/editor/alpha/{}", unity_version.version()),
+        UnityVersionType::Beta => format!("https://unity.com/en/releases/editor/beta/{}", unity_version.version()),
+        UnityVersionType::Final | UnityVersionType::Patch => format!(
             "https://unity.com/en/releases/editor/whats-new/{}.{}.{}",
             unity_version.major, unity_version.minor, unity_version.build
         ),
-        'x' | _ => unreachable!(),
+        _ => todo!(),
     };
 
     let client = Client::new();

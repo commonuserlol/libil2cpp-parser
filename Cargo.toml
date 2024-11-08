@@ -2,7 +2,7 @@
 name = "libil2cpp-parser"
 version = "0.1.0"
 edition = "2021"
-license = "AGPLv3"
+license = "GLWTSPL"
 authors = ["commonuserlol"]
 
 [features]
@@ -15,8 +15,10 @@ futures = "0.3.31"
 futures-util = "0.3.31"
 itertools = "0.13.0"
 markdown-table = "0.2.0"
-regex = "1.10.6"
-reqwest = { version = "0.12.7", features = ["stream"] }
+reqwest = { version = "0.12.9", features = ["stream"] }
+serde = { version = "1.0.214", features = ["derive"] }
+serde_json = "1.0.132"
 tar = "0.4.41"
 tokio = { version = "1.39.3", features = ["full"] }
+unity-version = { git = "https://github.com/commonuserlol/unity-version-rs", version = "0.1.0" }
 xz2 = "0.1.7"

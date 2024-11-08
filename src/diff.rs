@@ -1,5 +1,5 @@
-use crate::unity_version::UnityVersion;
 use std::{env::current_dir, fs, process::Command, sync::LazyLock};
+use unity_version::UnityVersion;
 
 static ARGS: LazyLock<Vec<String>> = LazyLock::new(|| ["-P", "-D", "NET_4_0", "-I"].map(|e| e.to_string()).to_vec());
 

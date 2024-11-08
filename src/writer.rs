@@ -7,7 +7,7 @@ use std::{
 use tar::Archive;
 use xz2::read::XzDecoder;
 
-use crate::unity_version::UnityVersion;
+use unity_version::UnityVersion;
 
 pub struct LibIl2CppWriter<'a> {
     unity_version: &'a UnityVersion,

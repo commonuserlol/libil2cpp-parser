@@ -11,14 +11,13 @@ use diff::{diff, generate_single_header, PostProcessError};
 use futures::future::join_all;
 use table::create_table;
 use tokio;
-use unity_version::UnityVersion;
+use unity_version::{UnityVersion, UnityVersionType};
 use version_parser::DownloadableUnity;
 
 mod args;
 mod diff;
 mod downloader;
 mod table;
-mod unity_version;
 mod version_parser;
 mod writer;
 
@@ -38,11 +37,13 @@ async fn decompress_and_flush<'a>(unity_version: DownloadableUnity, buffer: Vec<
 }
 
 async fn stage1(unity_versions: &mut Vec<DownloadableUnity>) {
-    let unity201745f1 = UnityVersion::new(2017, Some(4), Some(5), Some('f'), Some(1));
-    let unity201810b2 = UnityVersion::new(2018, Some(1), Some(0), Some('b'), Some(2));
-    let unity201814f1 = UnityVersion::new(2018, Some(1), Some(4), Some('f'), Some(1));
-    let unity201820b2 = UnityVersion::new(2018, Some(2), Some(0), Some('b'), Some(2));
-    let unity201820b8 = UnityVersion::new(2018, Some(2), Some(0), Some('b'), Some(8));
+    let unity201745f1 = UnityVersion::new(2017, 4, 5, UnityVersionType::Final, 1);
+
+    let unity201810b2 = UnityVersion::new(2018, 1, 0, UnityVersionType::Beta, 2);
+    let unity201814f1 = UnityVersion::new(2018, 1, 4, UnityVersionType::Final, 1);
+
+    let unity201820b2 = UnityVersion::new(2018, 2, 0, UnityVersionType::Beta, 2);
+    let unity201820b8 = UnityVersion::new(2018, 2, 0, UnityVersionType::Beta, 8);
 
     let mut tasks = vec![];
     for unity_version in unity_versions.iter_mut() {
@@ -130,21 +131,22 @@ fn stage3(unity_versions: &Vec<DownloadableUnity>) {
 #[tokio::main(flavor = "multi_thread", worker_threads = 4)]
 async fn main() {
     let args = Arguments::parse();
-    if let Ok(text) = downloader::fetch_archive().await {
-        let mut unity_versions = version_parser::parse_unity_versions(&text);
-        if args.stage_1 {
-            println!("Stage 1: Downloading all available unity versions");
-            stage1(&mut unity_versions).await;
-        }
+    let pairs = downloader::fetch_versions().await;
+    let mut unity_versions = version_parser::parse_unity_versions(pairs);
+    assert!(unity_versions.len() > 0);
+    green_ln!("Successfully parsed {} versions", unity_versions.len());
+    if args.stage_1 {
+        println!("Stage 1: Downloading all available unity versions");
+        stage1(&mut unity_versions).await;
+    }
 
-        if args.stage_2 {
-            println!("Stage 2: Building markdown file");
-            stage2(&mut unity_versions);
-        }
+    if args.stage_2 {
+        println!("Stage 2: Building markdown file");
+        stage2(&mut unity_versions);
+    }
 
-        if args.stage_3 {
-            println!("Stage 3: Building single-header IL2CPP structs and diffing 'em");
-            stage3(&unity_versions);
-        }
+    if args.stage_3 {
+        println!("Stage 3: Building single-header IL2CPP structs and diffing 'em");
+        stage3(&unity_versions);
     }
 }
